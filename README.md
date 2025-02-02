@@ -11,4 +11,4 @@ A web application for signing and uploading digital agreements.
 ## Setup
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/digital-agreement-form.git
+   git clone https://github.com/ErmalHamzaj/digital-agreement-form.git
