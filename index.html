@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Digital Agreement Form</title>
+    <style>
+        /* Styles for the form, canvas, and buttons */
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+        }
+        #terms {
+            border: 1px solid #ccc;
+            padding: 15px;
+            margin-bottom: 20px;
+            height: 200px;
+            overflow-y: scroll;
+        }
+        #signatureArea {
+            display: none;
+            margin-top: 20px;
+        }
+        #nameInput {
+            margin-bottom: 15px;
+            padding: 10px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        #signatureCanvas {
+            border: 1px solid #ccc;
+            background-color: #f8f8f8;
+            width: 100%;
+            height: 150px;
+            touch-action: none;
+        }
+        .button-container {
+            margin-top: 10px;
+        }
+        button {
+            padding: 10px 20px;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        #acceptBtn {
+            background-color: #25D366;
+        }
+        #clearBtn {
+            background-color: #ff4444;
+        }
+        #downloadPdfBtn {
+            background-color: #2d4373;
+        }
+        #sendBtn {
+            background-color: #bb001b;
+        }
+        #downloadPdfBtn:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+</head>
+<body>
+    <div id="terms">
+        <h2>Terms and Conditions</h2>
+        <p>This is a sample terms and conditions agreement.</p>
+    </div>
+    <button id="acceptBtn">I Accept</button>
+    <div id="signatureArea">
+        <p>Name and Surname:</p>
+        <input type="text" id="nameInput" placeholder="Enter your full name" />
+        <p>Sign below:</p>
+        <canvas id="signatureCanvas"></canvas>
+        <div class="button-container">
+            <button id="clearBtn">Clear Signature</button>
+            <button id="downloadPdfBtn" disabled>Download Signed PDF</button>
+            <button id="sendBtn" disabled>Send Signed PDF</button>
+        </div>
+    </div>
+    <script>
+        const acceptBtn = document.getElementById('acceptBtn');
+        const signatureArea = document.getElementById('signatureArea');
+        const canvas = document.getElementById('signatureCanvas');
+        const clearBtn = document.getElementById('clearBtn');
+        const downloadPdfBtn = document.getElementById('downloadPdfBtn');
+        const sendBtn = document.getElementById('sendBtn');
+        const nameInput = document.getElementById('nameInput');
+        const ctx = canvas.getContext('2d');
+
+        let isDrawing = false;
+        let lastX = 0;
+        let lastY = 0;
+
+        // Initialize canvas
+        function initCanvas() {
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 2;
+            ctx.lineCap = 'round';
+        }
+
+        // Show signature area
+        function showSignatureArea() {
+            acceptBtn.style.display = 'none';
+            signatureArea.style.display = 'block';
+            initCanvas();
+        }
+
+        // Drawing functions
+        function startDrawing(e) {
+            e.preventDefault();
+            isDrawing = true;
+            const pos = getPosition(e);
+            [lastX, lastY] = [pos.x, pos.y];
+        }
+
+        function draw(e) {
+            if (!isDrawing) return;
+            e.preventDefault();
+            const pos = getPosition(e);
+            ctx.beginPath();
+            ctx.moveTo(lastX, lastY);
+            ctx.lineTo(pos.x, pos.y);
+            ctx.stroke();
+            [lastX, lastY] = [pos.x, pos.y];
+            checkSignature();
+        }
+
+        function endDrawing() {
+            isDrawing = false;
+            checkSignature();
+        }
+
+        function getPosition(e) {
+            const rect = canvas.getBoundingClientRect();
+            return {
+                x: (e.clientX || e.touches[0].clientX) - rect.left,
+                y: (e.clientY || e.touches[0].clientY) - rect.top
+            };
+        }
+
+        function clearSignature() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            checkSignature();
+        }
+
+        function checkSignature() {
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const hasSignature = imageData.data.some(channel => channel !== 0);
+            const hasName = nameInput.value.trim() !== '';
+            downloadPdfBtn.disabled = !(hasSignature && hasName);
+            sendBtn.disabled = !(hasSignature && hasName);
+        }
+
+        // Generate Signed PDF
+        async function generateSignedPDF() {
+            try {
+                // Load the existing PDF from a URL
+                const pdfUrl = 'https://your-path.com/doc.pdf'; // Replace with your PDF URL
+                const existingPdfBytes = await fetch(pdfUrl).then(res => res.arrayBuffer());
+                const pdfDoc = await PDFLib.PDFDocument.load(existingPdfBytes);
+
+                // Ensure the canvas contains valid data
+                const canvasDataUrl = canvas.toDataURL('image/png');
+                if (!canvasDataUrl || canvasDataUrl === 'data:,') {
+                    throw new Error('Canvas is empty or invalid.');
+                }
+
+                // Convert the canvas data to a valid PNG image
+                const base64Data = canvasDataUrl.split(',')[1]; // Remove the "data:image/png;base64," prefix
+                if (!base64Data) {
+                    throw new Error('Failed to extract base64 data from canvas.');
+                }
+                const pngData = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+
+                // Embed the signature as an image
+                const signatureImage = await pdfDoc.embedPng(pngData);
+
+                // Add a new page or use the last page of the PDF
+                const pages = pdfDoc.getPages();
+                const lastPage = pages[pages.length - 1];
+                const { width, height } = lastPage.getSize();
+
+                // Add signature, name, and date at the bottom-right corner
+                const name = nameInput.value.trim();
+                const date = new Date().toLocaleDateString();
+
+                // Coordinates for bottom-right alignment
+                const margin = 50; // Space from the edges
+                const signatureWidth = 150;
+                const signatureHeight = 50;
+
+                // Draw the signature image
+                lastPage.drawImage(signatureImage, {
+                    x: width - signatureWidth - margin,
+                    y: margin,
+                    width: signatureWidth,
+                    height: signatureHeight,
+                });
+
+                // Draw the name
+                lastPage.drawText(`Signed by: ${name}`, {
+                    x: width - margin - 200, // Adjust based on text length
+                    y: margin + signatureHeight + 10,
+                    size: 12,
+                    align: 'right',
+                });
+
+                // Draw the signed date
+                lastPage.drawText(`Signed Date: ${date}`, {
+                    x: width - margin - 200, // Adjust based on text length
+                    y: margin + signatureHeight + 25,
+                    size: 10,
+                    align: 'right',
+                });
+
+                // Save the modified PDF
+                const modifiedPdfBytes = await pdfDoc.save();
+                const blob = new Blob([modifiedPdfBytes], { type: 'application/pdf' });
+                return blob;
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Failed to generate PDF. Please try again.');
+            }
+        }
+
+        // Download PDF
+        async function downloadPDF() {
+            const blob = await generateSignedPDF();
+            if (blob) {
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = 'signed_agreement.pdf';
+                link.click();
+            }
+        }
+
+        // Send Signed PDF to Server
+        async function sendPDF() {
+            const blob = await generateSignedPDF();
+            if (blob) {
+                const formData = new FormData();
+                const name = document.getElementById('nameInput').value.trim(); // Get the name and surname
+                formData.append('pdf', blob, 'signed_agreement.pdf'); // Original file name
+                formData.append('name', name); // Add the name as a separate field
+
+                // Send the PDF to the server
+                fetch('https://your-host.com/upload.php', { // Replace with your domain
+                    method: 'POST',
+                    body: formData,
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert(data.message); // Display the success message
+                    } else {
+                        alert(data.message); // Display any error message
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('An error occurred while sending the signed PDF.');
+                });
+            }
+        }
+
+        // Event Listeners
+        acceptBtn.addEventListener('click', showSignatureArea);
+        clearBtn.addEventListener('click', clearSignature);
+        downloadPdfBtn.addEventListener('click', downloadPDF);
+        sendBtn.addEventListener('click', sendPDF);
+        nameInput.addEventListener('input', checkSignature);
+
+        // Drawing Events
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', endDrawing);
+        canvas.addEventListener('mouseout', endDrawing);
+
+        // Touch Events
+        canvas.addEventListener('touchstart', startDrawing);
+        canvas.addEventListener('touchmove', draw);
+        canvas.addEventListener('touchend', endDrawing);
+
+        // Initial canvas setup
+        initCanvas();
+    </script>
+</body>
+</html>
