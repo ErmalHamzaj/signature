@@ -1,0 +1,10 @@
+digital-agreement-form/
+├── README.md
+├── index.html
+├── upload.php
+├── uploads/
+│   └── .htaccess
+├── logs/
+│   └── .htaccess
+└── assets/
+    └── styles.css
