@@ -14,7 +14,7 @@ A web application for signing and uploading digital agreements.
    git clone https://github.com/ErmalHamzaj/signature.git
 
 
-   1. Overview
+## 1. Overview
 This project allows users to:
 
 Sign a digital agreement form on a canvas.
@@ -33,7 +33,7 @@ Saves the signed PDF in a designated directory (uploads).
 Logs the user's name and IP address in a separate directory (logs).
 
 
-2. Frontend Code
+## 2. Frontend Code
 HTML Structure
 The HTML file contains:
 
@@ -43,6 +43,6 @@ A canvas for the user to sign.
 Buttons for downloading, sending, and clearing the signature.
 
 
-3. Backend Code
+## 3. Backend Code
 PHP Script (upload.php)
 This script handles the file upload and logs the user's name and IP address.
